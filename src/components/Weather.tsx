@@ -3,9 +3,13 @@ import type { LocationCandidate, WeatherResponse } from "../api/weather";
 import { getWeatherCondition } from "../weatherConditions";
 
 const Weather = ({ data, location }: { data: WeatherResponse; location: LocationCandidate }) => {
-	const temperature = data.current_weather?.temperature;
-	const weatherCode = data.current_weather?.weathercode;
-	const condition = getWeatherCondition(weatherCode, data.current_weather?.is_day);
+	const temperature = data.current?.temperature_2m ?? data.current_weather?.temperature;
+	const humidity = data.current?.relative_humidity_2m;
+	const windSpeed = data.current?.wind_speed_10m ?? data.current_weather?.wind_speed;
+	const weatherCode = data.current?.weather_code ?? data.current_weather?.weathercode;
+	const isDay = data.current?.is_day ?? data.current_weather?.is_day;
+	const uvIndex = data.daily?.uv_index_max?.[0];
+	const condition = getWeatherCondition(weatherCode, isDay);
 
 	return (
 		<section aria-label="Weather data">
@@ -27,16 +31,34 @@ const Weather = ({ data, location }: { data: WeatherResponse; location: Location
 							Temperature
 						</p>
 						<p className="text-3xl font-black text-gray-900 dark:text-gray-100">
-							{typeof temperature === "number" ? `${temperature.toFixed(1)}°C` : "N/A"}
+							{typeof temperature === "number" ? `${temperature.toFixed(1)}°` : "N/A"}
 						</p>
 					</div>
 				</div>
 
-				<div className="mt-4 rounded-md border border-blue-200 bg-white/70 p-3 text-sm text-gray-800 dark:border-gray-600 dark:bg-gray-900/70 dark:text-gray-200">
-					<p>
-						<strong>Weather from API:</strong> {condition.label}
-						{typeof weatherCode === "number" ? ` (code ${weatherCode})` : ""}
-					</p>
+				<div className="mt-4 grid grid-cols-2 gap-3">
+					<div className="rounded-md border border-blue-200 bg-white/70 p-3 text-sm text-gray-800 dark:border-gray-600 dark:bg-gray-900/70 dark:text-gray-200">
+						<p className="text-xs font-semibold text-gray-600 dark:text-gray-400">Condition</p>
+						<p>{condition.label}</p>
+					</div>
+					{typeof humidity === "number" && (
+						<div className="rounded-md border border-blue-200 bg-white/70 p-3 text-sm text-gray-800 dark:border-gray-600 dark:bg-gray-900/70 dark:text-gray-200">
+							<p className="text-xs font-semibold text-gray-600 dark:text-gray-400">Humidity</p>
+							<p>{humidity}%</p>
+						</div>
+					)}
+					{typeof windSpeed === "number" && (
+						<div className="rounded-md border border-blue-200 bg-white/70 p-3 text-sm text-gray-800 dark:border-gray-600 dark:bg-gray-900/70 dark:text-gray-200">
+							<p className="text-xs font-semibold text-gray-600 dark:text-gray-400">Wind Speed</p>
+							<p>{windSpeed.toFixed(1)} km/h</p>
+						</div>
+					)}
+					{typeof uvIndex === "number" && (
+						<div className="rounded-md border border-blue-200 bg-white/70 p-3 text-sm text-gray-800 dark:border-gray-600 dark:bg-gray-900/70 dark:text-gray-200">
+							<p className="text-xs font-semibold text-gray-600 dark:text-gray-400">UV Index</p>
+							<p>{uvIndex.toFixed(1)}</p>
+						</div>
+					)}
 				</div>
 			</div>
 		</section>
