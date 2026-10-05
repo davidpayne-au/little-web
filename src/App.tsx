@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { getWeather, searchLocations, type LocationCandidate, type WeatherResponse } from "./api/weather";
 import Weather from "./components/Weather";
+import { getWeatherCondition } from "./weatherConditions";
 
 function getInitialTheme(): "dark" | "light" {
 	if (typeof window === "undefined") return "light";
@@ -159,55 +160,62 @@ export default function App() {
 		}
 	};
 
+	const mood = data && !loading && selectedLocation ? getWeatherCondition(
+		data.current?.weather_code ?? data.current_weather?.weathercode,
+		data.current?.is_day ?? data.current_weather?.is_day,
+	).mood : undefined;
+
 	return (
-		<div className="min-h-screen bg-white text-gray-900 transition-colors duration-200 dark:bg-gray-950 dark:text-gray-100">
-			<a
-				href="#main-content"
-				className="sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:not-sr-only focus:rounded focus:bg-brand-primary focus:px-4 focus:py-2 focus:text-white focus:ring-2 focus:ring-offset-2"
-			>
+		<div className="app-shell" data-mood={mood ?? "idle"}>
+			<div aria-hidden="true" className="sky">
+				<span className="sky-orb sky-orb-a" />
+				<span className="sky-orb sky-orb-b" />
+				<span className="sky-orb sky-orb-c" />
+			</div>
+
+			<a href="#main-content" className="skip-link">
 				Skip to main content
 			</a>
 
-			<header className="border-b border-gray-200 px-6 py-4 dark:border-gray-800">
-				<div className="mx-auto flex max-w-3xl items-center justify-between gap-4">
-					<h1 className="text-2xl font-bold tracking-tight">
-						🌤️ Weather
-						<span className="ml-2 text-sm font-normal text-gray-600 dark:text-gray-300">
-							via Open-Meteo
+			<header className="px-4 py-4 sm:px-6">
+				<div className="glass mx-auto flex max-w-3xl items-center justify-between gap-3 rounded-full px-5 py-2">
+					<h1 className="brand">
+						<span aria-hidden="true" className="brand-mark">
+							🌤️
 						</span>
+						Weather
+						<span className="brand-sub">via Open-Meteo</span>
 					</h1>
-					<div className="flex items-center gap-2">
+					<div className="flex items-center gap-1">
 						<button
+							type="button"
 							onClick={toggleUnit}
 							aria-label={unit === "celsius" ? "Switch to Fahrenheit" : "Switch to Celsius"}
-							className="rounded-full p-2 text-gray-700 transition-colors hover:bg-gray-100 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:outline-none dark:text-gray-200 dark:hover:bg-gray-800 dark:focus-visible:ring-offset-gray-950"
+							className="icon-btn"
 							title={unit === "celsius" ? "°C" : "°F"}
 						>
 							<span aria-hidden="true">{unit === "celsius" ? "°C" : "°F"}</span>
 						</button>
 						<button
+							type="button"
 							onClick={toggleTheme}
 							aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-							className="rounded-full p-2 text-gray-700 transition-colors hover:bg-gray-100 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:outline-none dark:text-gray-200 dark:hover:bg-gray-800 dark:focus-visible:ring-offset-gray-950"
+							className="icon-btn"
 						>
-							{theme === "dark" ? (
-								<span aria-hidden="true">☀️</span>
-							) : (
-								<span aria-hidden="true">🌙</span>
-							)}
+							<span aria-hidden="true">{theme === "dark" ? "☀️" : "🌙"}</span>
 						</button>
 					</div>
 				</div>
 			</header>
 
-			<main id="main-content" className="mx-auto max-w-3xl px-6 py-8">
-				<section aria-labelledby="location-heading">
-					<h2 id="location-heading" className="mb-4 text-lg font-semibold">
+			<main id="main-content" className="mx-auto max-w-3xl px-4 pt-6 pb-16 sm:px-6">
+				<section aria-labelledby="location-heading" className="glass rounded-3xl p-5 sm:p-7">
+					<h2 id="location-heading" className="hero-title">
 						Enter a location name
 					</h2>
-					<div className="flex flex-wrap items-end gap-4">
-						<div className="flex min-w-72 flex-1 flex-col gap-1">
-							<label htmlFor="location-input" className="text-sm font-medium text-gray-800 dark:text-gray-200">
+					<div className="mt-4 flex flex-wrap items-end gap-3">
+						<div className="flex min-w-60 flex-1 flex-col gap-1.5">
+							<label htmlFor="location-input" className="field-label">
 								Location name
 							</label>
 							<input
@@ -222,7 +230,8 @@ export default function App() {
 								}}
 								aria-describedby="location-hint"
 								placeholder="e.g. brisbane"
-								className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-500 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:outline-none dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-400 dark:focus-visible:ring-offset-gray-950"
+								autoComplete="off"
+								className="field"
 							/>
 							<span id="location-hint" className="sr-only">
 								Enter a city or place name, then press Enter or Search
@@ -230,44 +239,39 @@ export default function App() {
 						</div>
 
 						<button
+							type="button"
 							onClick={searchAndLoadWeather}
 							disabled={loading}
 							aria-busy={loading}
-							className="rounded-md bg-blue-700 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-800 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 dark:focus-visible:ring-offset-gray-950"
+							className="btn btn-primary"
 						>
 							{loading ? "Loading…" : "Search"}
 						</button>
 
 						<button
+							type="button"
 							onClick={useGeolocation}
 							disabled={loading}
 							aria-busy={loading}
-							aria-label="Use your current location"
-							className="rounded-md bg-green-700 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-green-800 focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 dark:focus-visible:ring-offset-gray-950"
+							className="btn btn-secondary"
 						>
-							📍
+							<span aria-hidden="true">📍</span> Use my location
 						</button>
 					</div>
 
 					{geolocationError && (
-						<div className="mt-2 text-xs text-gray-600 dark:text-gray-400">
+						<p role="status" className="mt-3 text-sm text-muted">
 							{geolocationError}
-						</div>
+						</p>
 					)}
 
 					{candidates.length > 1 && !loading && (
-						<div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900">
-							<h3 className="mb-2 text-sm font-semibold text-gray-800 dark:text-gray-200">
-								Choose a matching location
-							</h3>
-							<ul className="grid gap-2" role="listbox" aria-label="Matching locations">
+						<div className="panel mt-5">
+							<h3 className="panel-title">Choose a matching location</h3>
+							<ul className="grid gap-2" aria-label="Matching locations">
 								{candidates.map((candidate) => (
 									<li key={candidate.id}>
-										<button
-											type="button"
-											onClick={() => void fetchWeatherForLocation(candidate)}
-											className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-left text-sm text-gray-900 transition-colors hover:bg-gray-100 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:outline-none dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:hover:bg-gray-800 dark:focus-visible:ring-offset-gray-950"
-										>
+										<button type="button" onClick={() => void fetchWeatherForLocation(candidate)} className="candidate">
 											{candidate.name}
 											{candidate.admin1 ? `, ${candidate.admin1}` : ""}
 											{candidate.country ? `, ${candidate.country}` : ""}
@@ -279,51 +283,43 @@ export default function App() {
 					)}
 
 					{recentSearches.length > 0 && !data && candidates.length <= 1 && (
-						<div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900">
-							<h3 className="mb-2 text-sm font-semibold text-gray-800 dark:text-gray-200">
-								Recent searches
-							</h3>
-							<div className="flex flex-wrap gap-2">
+						<div className="panel mt-5">
+							<h3 className="panel-title">Recent searches</h3>
+							<ul className="flex flex-wrap gap-2" aria-label="Recent searches">
 								{recentSearches.map((location) => (
-									<button
-										key={location.id}
-										type="button"
-										onClick={() => void fetchWeatherForLocation(location)}
-										className="rounded-full border border-gray-300 bg-white px-3 py-1 text-xs text-gray-700 transition-colors hover:bg-gray-100 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:outline-none dark:border-gray-700 dark:bg-gray-950 dark:text-gray-200 dark:hover:bg-gray-800 dark:focus-visible:ring-offset-gray-950"
-									>
-										{location.name}
-									</button>
+									<li key={location.id}>
+										<button type="button" onClick={() => void fetchWeatherForLocation(location)} className="chip">
+											{location.name}
+										</button>
+									</li>
 								))}
-							</div>
+							</ul>
 						</div>
 					)}
 				</section>
 
 				<div aria-live="polite" aria-atomic="true" className="mt-6 space-y-4">
 					{error && (
-						<div
-							role="alert"
-							className="flex items-start gap-2 rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-900 dark:border-red-700 dark:bg-red-950 dark:text-red-200"
-						>
-							<span aria-hidden="true" className="mt-0.5">
-								⚠️
-							</span>
+						<div role="alert" className="alert">
+							<span aria-hidden="true">⚠️</span>
 							<span>{error}</span>
 						</div>
 					)}
 
 					{loading && (
-						<div role="status" className="loading-panel text-sm text-gray-700 dark:text-gray-300">
-							<span className="sr-only">Loading weather data, please wait.</span>
+						<div role="status" className="loading-panel">
+							<span className="sr-only">{loadingLabel || "Loading weather data"}, please wait.</span>
 							<div aria-hidden="true" className="loading-orbit" />
 							<span aria-hidden="true" className="loading-emoji">
 								🌤️
 							</span>
-							<span className="font-medium">{loadingLabel || "Loading"}…</span>
+							<span aria-hidden="true" className="font-medium">
+								{loadingLabel || "Loading"}…
+							</span>
 						</div>
 					)}
 
-					{data && !loading && selectedLocation && <Weather data={data} location={selectedLocation} />}
+					{data && !loading && selectedLocation && <Weather data={data} location={selectedLocation} unit={unit} />}
 				</div>
 			</main>
 		</div>
