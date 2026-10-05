@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { getWeather, searchLocations, type LocationCandidate, type WeatherResponse } from "./api/weather";
 import Weather from "./components/Weather";
 
@@ -9,8 +9,35 @@ function getInitialTheme(): "dark" | "light" {
 	return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
+function getInitialUnit(): "celsius" | "fahrenheit" {
+	if (typeof window === "undefined") return "celsius";
+	const stored = localStorage.getItem("temperatureUnit");
+	if (stored === "celsius" || stored === "fahrenheit") return stored;
+	return "celsius";
+}
+
+function getRecentSearches(): LocationCandidate[] {
+	if (typeof window === "undefined") return [];
+	const stored = localStorage.getItem("recentSearches");
+	if (!stored) return [];
+	try {
+		return JSON.parse(stored);
+	} catch {
+		return [];
+	}
+}
+
+function saveRecentSearch(location: LocationCandidate): void {
+	if (typeof window === "undefined") return;
+	const recent = getRecentSearches();
+	const filtered = recent.filter((l) => l.id !== location.id);
+	const updated = [location, ...filtered].slice(0, 5);
+	localStorage.setItem("recentSearches", JSON.stringify(updated));
+}
+
 export default function App() {
 	const [theme, setTheme] = useState<"dark" | "light">(getInitialTheme);
+	const [unit, setUnit] = useState<"celsius" | "fahrenheit">(getInitialUnit);
 	const [locationQuery, setLocationQuery] = useState("brisbane");
 	const [candidates, setCandidates] = useState<LocationCandidate[]>([]);
 	const [selectedLocation, setSelectedLocation] = useState<LocationCandidate | null>(null);
@@ -18,6 +45,8 @@ export default function App() {
 	const [loading, setLoading] = useState(false);
 	const [loadingLabel, setLoadingLabel] = useState<string | null>(null);
 	const [error, setError] = useState<string | null>(null);
+	const [recentSearches, setRecentSearches] = useState<LocationCandidate[]>(getRecentSearches);
+	const [geolocationError, setGeolocationError] = useState<string | null>(null);
 
 	useEffect(() => {
 		const root = document.documentElement;
@@ -29,7 +58,52 @@ export default function App() {
 		localStorage.setItem("theme", theme);
 	}, [theme]);
 
+	useEffect(() => {
+		localStorage.setItem("temperatureUnit", unit);
+	}, [unit]);
+
 	const toggleTheme = () => setTheme((currentTheme) => (currentTheme === "dark" ? "light" : "dark"));
+
+	const toggleUnit = () => setUnit((currentUnit) => (currentUnit === "celsius" ? "fahrenheit" : "celsius"));
+
+	const useGeolocation = useCallback(() => {
+		if (!navigator.geolocation) {
+			setGeolocationError("Geolocation is not supported by your browser");
+			return;
+		}
+
+		setLoading(true);
+		setLoadingLabel("Getting your location");
+		setGeolocationError(null);
+
+		navigator.geolocation.getCurrentPosition(
+			async (position) => {
+				const { latitude, longitude } = position.coords;
+				try {
+					const res = await getWeather(latitude, longitude, unit);
+					setData(res);
+					setSelectedLocation({
+						id: `${latitude}-${longitude}`,
+						name: "Your Location",
+						latitude,
+						longitude,
+					});
+					setCandidates([]);
+					setError(null);
+				} catch (e: any) {
+					setError(e.message || "Failed to fetch weather for your location");
+				} finally {
+					setLoadingLabel(null);
+					setLoading(false);
+				}
+			},
+			() => {
+				setGeolocationError("Unable to access your location. Please enable location access.");
+				setLoadingLabel(null);
+				setLoading(false);
+			}
+		);
+	}, [unit]);
 
 	const fetchWeatherForLocation = async (location: LocationCandidate) => {
 		setLoading(true);
@@ -38,8 +112,11 @@ export default function App() {
 		setCandidates([]);
 		setSelectedLocation(location);
 		try {
-			const res = await getWeather(location.latitude, location.longitude);
+			const res = await getWeather(location.latitude, location.longitude, unit);
 			setData(res);
+			saveRecentSearch(location);
+			const updated = getRecentSearches();
+			setRecentSearches(updated);
 		} catch (e: any) {
 			setError(e.message || "Failed to fetch weather data");
 		} finally {
@@ -99,17 +176,27 @@ export default function App() {
 							via Open-Meteo
 						</span>
 					</h1>
-					<button
-						onClick={toggleTheme}
-						aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-						className="rounded-full p-2 text-gray-700 transition-colors hover:bg-gray-100 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:outline-none dark:text-gray-200 dark:hover:bg-gray-800 dark:focus-visible:ring-offset-gray-950"
-					>
-						{theme === "dark" ? (
-							<span aria-hidden="true">☀️</span>
-						) : (
-							<span aria-hidden="true">🌙</span>
-						)}
-					</button>
+					<div className="flex items-center gap-2">
+						<button
+							onClick={toggleUnit}
+							aria-label={unit === "celsius" ? "Switch to Fahrenheit" : "Switch to Celsius"}
+							className="rounded-full p-2 text-gray-700 transition-colors hover:bg-gray-100 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:outline-none dark:text-gray-200 dark:hover:bg-gray-800 dark:focus-visible:ring-offset-gray-950"
+							title={unit === "celsius" ? "°C" : "°F"}
+						>
+							<span aria-hidden="true">{unit === "celsius" ? "°C" : "°F"}</span>
+						</button>
+						<button
+							onClick={toggleTheme}
+							aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+							className="rounded-full p-2 text-gray-700 transition-colors hover:bg-gray-100 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:outline-none dark:text-gray-200 dark:hover:bg-gray-800 dark:focus-visible:ring-offset-gray-950"
+						>
+							{theme === "dark" ? (
+								<span aria-hidden="true">☀️</span>
+							) : (
+								<span aria-hidden="true">🌙</span>
+							)}
+						</button>
+					</div>
 				</div>
 			</header>
 
@@ -150,7 +237,23 @@ export default function App() {
 						>
 							{loading ? "Loading…" : "Search"}
 						</button>
+
+						<button
+							onClick={useGeolocation}
+							disabled={loading}
+							aria-busy={loading}
+							aria-label="Use your current location"
+							className="rounded-md bg-green-700 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-green-800 focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 dark:focus-visible:ring-offset-gray-950"
+						>
+							📍
+						</button>
 					</div>
+
+					{geolocationError && (
+						<div className="mt-2 text-xs text-gray-600 dark:text-gray-400">
+							{geolocationError}
+						</div>
+					)}
 
 					{candidates.length > 1 && !loading && (
 						<div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900">
@@ -172,6 +275,26 @@ export default function App() {
 									</li>
 								))}
 							</ul>
+						</div>
+					)}
+
+					{recentSearches.length > 0 && !data && candidates.length <= 1 && (
+						<div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900">
+							<h3 className="mb-2 text-sm font-semibold text-gray-800 dark:text-gray-200">
+								Recent searches
+							</h3>
+							<div className="flex flex-wrap gap-2">
+								{recentSearches.map((location) => (
+									<button
+										key={location.id}
+										type="button"
+										onClick={() => void fetchWeatherForLocation(location)}
+										className="rounded-full border border-gray-300 bg-white px-3 py-1 text-xs text-gray-700 transition-colors hover:bg-gray-100 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:outline-none dark:border-gray-700 dark:bg-gray-950 dark:text-gray-200 dark:hover:bg-gray-800 dark:focus-visible:ring-offset-gray-950"
+									>
+										{location.name}
+									</button>
+								))}
+							</div>
 						</div>
 					)}
 				</section>

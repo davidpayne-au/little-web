@@ -6,9 +6,9 @@ describe("getWeather", () => {
     const mock = {
       latitude: -27.47,
       longitude: 153.02,
-      current_weather: {
-        temperature: 21.7,
-        weathercode: 2,
+      current: {
+        temperature_2m: 21.7,
+        weather_code: 2,
       },
     };
     global.fetch = vi.fn(async () => ({
@@ -21,6 +21,28 @@ describe("getWeather", () => {
     expect(res).toEqual(mock);
     expect(global.fetch).toHaveBeenCalledWith(
       expect.stringContaining("/v1/forecast?latitude=1&longitude=2")
+    );
+  });
+
+  it("fetches with fahrenheit unit", async () => {
+    const mock = {
+      latitude: -27.47,
+      longitude: 153.02,
+      current: {
+        temperature_2m: 71,
+        weather_code: 2,
+      },
+    };
+    global.fetch = vi.fn(async () => ({
+      ok: true,
+      json: async () => mock,
+    })) as any;
+
+    const res = await getWeather(1, 2, "fahrenheit");
+
+    expect(res).toEqual(mock);
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining("temperature_unit=fahrenheit")
     );
   });
 

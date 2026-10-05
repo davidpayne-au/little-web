@@ -7,6 +7,19 @@ export type WeatherResponse = {
     weathercode: number;
     is_day?: 0 | 1;
     time?: string;
+    wind_speed?: number;
+    wind_direction?: number;
+  };
+  current?: {
+    temperature_2m?: number;
+    relative_humidity_2m?: number;
+    weather_code?: number;
+    is_day?: 0 | 1;
+    wind_speed_10m?: number;
+    wind_direction_10m?: number;
+  };
+  daily?: {
+    uv_index_max?: number[];
   };
 };
 
@@ -56,12 +69,12 @@ export async function searchLocations(name: string): Promise<LocationCandidate[]
   }));
 }
 
-export async function getWeather(lat: number, lon: number): Promise<WeatherResponse> {
+export async function getWeather(lat: number, lon: number, unit: "celsius" | "fahrenheit" = "celsius"): Promise<WeatherResponse> {
   const base =
     (import.meta.env.VITE_WEATHER_API_BASE as string) ||
     "https://api.open-meteo.com";
   const url = appendKey(
-    `${base}/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&temperature_unit=celsius`
+    `${base}/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,weather_code,is_day,wind_speed_10m,wind_direction_10m&daily=uv_index_max&temperature_unit=${unit}&wind_speed_unit=kmh`
   );
   const res = await fetch(url);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
